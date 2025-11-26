@@ -1,9 +1,9 @@
-langchain==0.2.16
-langchain-community==0.2.16
-langchain-mistralai==0.2.2
-langsmith==0.1.120
-mistralai==1.1.0
-numpy==2.1.1
+   langchain==0.2.16
+   langchain-community==0.2.16
+   langchain-mistralai==0.2.2
+   langsmith==0.1.120
+   mistralai==1.1.0
+   numpy==1.26.4
 # Vector Store and Embeddings
 chromadb==0.5.11
 sentence-transformers==3.2.1
