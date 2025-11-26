@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+/backend/venv/
+/venv/
+/frontend/node_modules/
+env/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+dist-ssr/
+*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Backend specific
+/backend/.env
+/backend/.env.*
+/backend/chroma_db/
+/backend/logs/
+/backend/*.log
+
+# Frontend specific
+/frontend/.env
+/frontend/.env.*
+
+# Databases / storage
+chroma_db/
+*.db
+
+# Temporary files
+*.tmp
+*.log
+temp/
+tmp/
+refrence.pdf
+
