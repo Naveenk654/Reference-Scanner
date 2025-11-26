@@ -356,6 +356,11 @@ async def chatbot_endpoint(payload: ChatbotRequest):
         )
 
 
+@app.options("/chatbot")
+async def chatbot_options():
+    # Allow browsers to complete CORS preflight successfully
+    return JSONResponse(content={"status": "ok"})
+
 if __name__ == "__main__":
     logger.info(f"Starting RefCheck backend server on port {PORT}")
     uvicorn.run(app, host="0.0.0.0", port=PORT)
