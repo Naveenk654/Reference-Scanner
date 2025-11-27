@@ -8,6 +8,7 @@ import StatusBadge from './StatusBadge'
 import { Card } from './ui/card'
 import API_URL from '../config/api'
 import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 export default function ReferenceTable({ references }) {
   const [searchQuery, setSearchQuery] = useState('')
@@ -59,8 +60,6 @@ export default function ReferenceTable({ references }) {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
 
-  const getFormattedReference = (ref, index) => `${index + 1}. ${ref.original_reference}`
-
   const downloadBlob = (blob, extension) => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -72,16 +71,49 @@ export default function ReferenceTable({ references }) {
     URL.revokeObjectURL(url)
   }
 
+  const buildTableRows = () => {
+    if (filteredReferences.length === 0) return [['-', '-', '-', '-']]
+    return filteredReferences.map(ref => {
+      const urlEntries = ref.url_details && ref.url_details.length > 0
+        ? ref.url_details.map(detail => detail.url)
+        : ref.urls
+      const urlString = urlEntries.length > 0 ? urlEntries.join('\n') : 'No URLs'
+      return [
+        ref.original_reference,
+        ref.type || 'Unknown',
+        urlString,
+        ref.status || 'Unknown'
+      ]
+    })
+  }
+
   const handleExportDOC = () => {
-    const docBody = filteredReferences
-      .map((ref, index) => `<p><strong>${index + 1}.</strong> ${escapeHtml(ref.original_reference)}</p>`)
-      .join('')
+    const rows = buildTableRows()
+    const headers = ['Reference', 'Category', 'URLs', 'Status']
+    const tableRowsHtml = rows.map(row => `
+      <tr>
+        ${row.map(cell => `<td style="border:1px solid #ddd;padding:8px;vertical-align:top;">${escapeHtml(cell).replace(/\n/g, '<br/>')}</td>`).join('')}
+      </tr>
+    `).join('')
+
     const html = `
       <html>
-        <head><meta charset="utf-8"><title>References</title></head>
+        <head>
+          <meta charset="utf-8">
+          <title>References</title>
+        </head>
         <body>
           <h1>References</h1>
-          ${docBody || '<p>No references</p>'}
+          <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:12px;">
+            <thead>
+              <tr>
+                ${headers.map(header => `<th style="border:1px solid #ddd;padding:8px;background:#f3f4f6;text-align:left;">${header}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml}
+            </tbody>
+          </table>
         </body>
       </html>
     `
@@ -91,25 +123,25 @@ export default function ReferenceTable({ references }) {
 
   const handleExportPDF = () => {
     const doc = new jsPDF({ unit: 'pt', format: 'a4' })
-    const margin = 40
-    const maxWidth = doc.internal.pageSize.getWidth() - margin * 2
-    let cursorY = margin
+    const headers = [['Reference', 'Category', 'URLs', 'Status']]
 
-    if (filteredReferences.length === 0) {
-      doc.text('No references', margin, cursorY)
-    } else {
-      filteredReferences.forEach((ref, index) => {
-        const referenceText = getFormattedReference(ref, index)
-        const lines = doc.splitTextToSize(referenceText, maxWidth)
-        const lineHeight = 14
-        if (cursorY + lines.length * lineHeight > doc.internal.pageSize.getHeight() - margin) {
-          doc.addPage()
-          cursorY = margin
-        }
-        doc.text(lines, margin, cursorY)
-        cursorY += lines.length * lineHeight + 6
-      })
-    }
+    autoTable(doc, {
+      head: headers,
+      body: buildTableRows(),
+      startY: 40,
+      styles: { fontSize: 8, cellWidth: 'wrap' },
+      headStyles: { fillColor: [76, 175, 80] },
+      columnStyles: {
+        0: { cellWidth: 180 },
+        1: { cellWidth: 90 },
+        2: { cellWidth: 180 },
+        3: { cellWidth: 80 }
+      },
+      didDrawPage: (data) => {
+        doc.setFontSize(14)
+        doc.text('References', data.settings.margin.left, 24)
+      }
+    })
 
     doc.save(`refcheck-references-${new Date().toISOString().split('T')[0]}.pdf`)
   }
