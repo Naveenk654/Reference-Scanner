@@ -7,6 +7,7 @@ import CategoryBadge from './CategoryBadge'
 import StatusBadge from './StatusBadge'
 import { Card } from './ui/card'
 import API_URL from '../config/api'
+import jsPDF from 'jspdf'
 
 export default function ReferenceTable({ references }) {
   const [searchQuery, setSearchQuery] = useState('')
@@ -24,8 +25,16 @@ export default function ReferenceTable({ references }) {
 
   const getRowKey = (ref, index) => `${ref.original_reference}-${index}`
 
+  const sortedReferences = useMemo(() => {
+    return [...references].sort((a, b) =>
+      a.original_reference.localeCompare(b.original_reference, undefined, {
+        sensitivity: 'base'
+      })
+    )
+  }, [references])
+
   const filteredReferences = useMemo(() => {
-    return references.filter((ref) => {
+    return sortedReferences.filter((ref) => {
       const urlEntries = (ref.url_details && ref.url_details.length > 0)
         ? ref.url_details.map(detail => detail.url)
         : ref.urls
@@ -40,19 +49,69 @@ export default function ReferenceTable({ references }) {
 
       return matchesSearch && matchesCategory && matchesStatus
     })
-  }, [references, searchQuery, categoryFilter, statusFilter])
+  }, [sortedReferences, searchQuery, categoryFilter, statusFilter])
 
-  const handleExportJSON = () => {
-    const dataStr = JSON.stringify(filteredReferences, null, 2)
-    const dataBlob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(dataBlob)
+  const escapeHtml = (text = '') =>
+    text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+
+  const getFormattedReference = (ref, index) => `${index + 1}. ${ref.original_reference}`
+
+  const downloadBlob = (blob, extension) => {
+    const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `refcheck-references-${new Date().toISOString().split('T')[0]}.json`
+    link.download = `refcheck-references-${new Date().toISOString().split('T')[0]}.${extension}`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+  }
+
+  const handleExportDOC = () => {
+    const docBody = filteredReferences
+      .map((ref, index) => `<p><strong>${index + 1}.</strong> ${escapeHtml(ref.original_reference)}</p>`)
+      .join('')
+    const html = `
+      <html>
+        <head><meta charset="utf-8"><title>References</title></head>
+        <body>
+          <h1>References</h1>
+          ${docBody || '<p>No references</p>'}
+        </body>
+      </html>
+    `
+    const blob = new Blob([html], { type: 'application/msword' })
+    downloadBlob(blob, 'doc')
+  }
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+    const margin = 40
+    const maxWidth = doc.internal.pageSize.getWidth() - margin * 2
+    let cursorY = margin
+
+    if (filteredReferences.length === 0) {
+      doc.text('No references', margin, cursorY)
+    } else {
+      filteredReferences.forEach((ref, index) => {
+        const referenceText = getFormattedReference(ref, index)
+        const lines = doc.splitTextToSize(referenceText, maxWidth)
+        const lineHeight = 14
+        if (cursorY + lines.length * lineHeight > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage()
+          cursorY = margin
+        }
+        doc.text(lines, margin, cursorY)
+        cursorY += lines.length * lineHeight + 6
+      })
+    }
+
+    doc.save(`refcheck-references-${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
   const handleFormatReference = async (referenceText, style, rowKey) => {
@@ -115,10 +174,16 @@ export default function ReferenceTable({ references }) {
               Found {references.length} total references
             </p>
           </div>
-          <Button onClick={handleExportJSON} className="bg-green-600 hover:bg-green-700">
-            <Download className="w-4 h-4 mr-2" />
-            Export JSON
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleExportDOC} className="bg-blue-600 hover:bg-blue-700">
+              <Download className="w-4 h-4 mr-2" />
+              Export DOC
+            </Button>
+            <Button onClick={handleExportPDF} className="bg-green-600 hover:bg-green-700">
+              <Download className="w-4 h-4 mr-2" />
+              Export PDF
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
